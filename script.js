@@ -14,6 +14,9 @@ const incidents = [
 ];
 const app = document.querySelector("#app");
 const nav = document.querySelectorAll(".nav-item");
+const siteHeader = document.querySelector(".site-header");
+const backToTop = document.querySelector(".back-to-top");
+let previousScroll = window.scrollY;
 const image = (story) => `<img src="${story.image}" alt="${story.title}" loading="lazy">`;
 const heading = (label, title, link = "") => `<div class="section-heading"><h2><span class="eyebrow">${label}</span>${title}</h2>${link ? `<a href="#">${link} →</a>` : ""}</div>`;
 
@@ -32,8 +35,31 @@ function render(view) {
   const views = { home: homeView, schedule: scheduleView, news: newsView, incidents: incidentsView, results: resultsView, faq: faqView, about: aboutView };
   app.innerHTML = `<div class="view-enter">${(views[view] || homeView)()}</div>`;
   nav.forEach((item) => item.classList.toggle("active", item.dataset.view === view || (view === "about" && item.dataset.view === "home")));
+  observeRevealItems();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-document.addEventListener("click", (event) => { const target = event.target.closest("[data-view]"); if (target) { event.preventDefault(); const view = target.dataset.view; history.pushState({ view }, "", `#${view}`); render(view); } });
+function observeRevealItems() {
+  const items = app.querySelectorAll(".hero-grid, .ticker, .content-grid, .page-intro, .schedule-grid, .news-layout, .incident-card, .stats-grid, .result-note, .faq-list");
+  if (!("IntersectionObserver" in window)) { items.forEach((item) => item.classList.add("is-visible")); return; }
+  const observer = new IntersectionObserver((entries, currentObserver) => {
+    entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add("is-visible"); currentObserver.unobserve(entry.target); } });
+  }, { threshold: 0.08 });
+  items.forEach((item) => observer.observe(item));
+}
+window.addEventListener("scroll", () => {
+  const currentScroll = window.scrollY;
+  siteHeader.classList.toggle("is-scrolled", currentScroll > 12);
+  siteHeader.classList.toggle("is-hidden", currentScroll > previousScroll && currentScroll > 150);
+  backToTop.classList.toggle("is-visible", currentScroll > 480);
+  previousScroll = currentScroll;
+}, { passive: true });
+backToTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-view], a[href^='#']");
+  if (!target) return;
+  const view = target.dataset.view || target.getAttribute("href").slice(1);
+  const validViews = ["home", "schedule", "news", "incidents", "results", "faq", "about"];
+  if (validViews.includes(view)) { event.preventDefault(); history.pushState({ view }, "", `#${view}`); render(view); }
+});
 window.addEventListener("popstate", () => render(location.hash.slice(1) || "home"));
 render(location.hash.slice(1) || "home");
